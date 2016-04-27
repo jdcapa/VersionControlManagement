@@ -1,36 +1,27 @@
 import os
 import shutil
 import sys
-
+import yaml
 
 GITHUB_USER = 'jdcapa'
 HOME = os.path.expanduser("~")
 VCM_PATH = os.path.join(HOME, ".VersionControl")
-
-
-github_https = "https://github.com/{}/{}copy".format(GITHUB_USER)
-github_git = 'git@github.com:{}/{}.git'.formtat(GITHUB_USER)
-
-
-
+PROJECT_DATA_FN = os.path.join(self.vcm_path, 'projects.yaml')
+GITHUB_https = "https://github.com/{}/{}copy"
+GITHUB_git = 'git@github.com:{}/{}.git'
 
 
 class VC_Project(object):
     """
     VC_Project contains details and methods for a version-controlled project.
     """
-    def __init__(self, project_path, vc_system='git', **kwargs):
+
+    def __init__(self, **kwargs):
         super(VC_Project, self).__init__()
-        self.path = project_path
-        self.vc_system = vc_system
-        if vc_system == 'git':
-            self.dotFolder = '.git'
-        elif vc_system == 'git':
-            self.dotFolder = '.svn'
+        if (len(kwargs) == 1 and 'identifier' in kwargs):
+            self.project_details_from_data(kwargs['identifier'])
         else:
-            sys.exit("VC_Project.__init__(): " +
-                     "Unknown Version control system.")
-        self.kwargs = self.set_defaults(kwargs)
+            self.set_defaults(kwargs)
 
     def set_defaults(self, kwargs):
         """
@@ -42,13 +33,42 @@ class VC_Project(object):
             else:
                 return default
 
+        self.project_path = check_kwargs_for('project_path', '')
+        self.vc_system = check_kwargs_for('vc_system', 'git')
         if self.vc_system == 'git':
-            self.use_github = check_kwargs_for('use_github', False)
+            self.dotFolder = '.git'
+        elif self.vc_system == 'svn':
+            self.dotFolder = '.svn'
+        else:
+            sys.exit("VC_Project.__init__(): " +
+                     "Unknown Version control system.")
+
         self.user = check_kwargs_for('user_name', '')
+        self.server_address = check_kwargs_for('server_address', '')
         self.project_name = check_kwargs_for('project_name',
                                              os.path.basename(self.path))
-        self.vcm_path = check_kwargs_for('vcm_path',
-                                         os.path.join(HOME, ".VersionControl"))
+        self.identifier = self.project_name + '-' + self.vc_system
+
+        if self.vc_system == 'git':
+            self.use_github = check_kwargs_for('use_github', False)
+            if self.use_github:
+                self.github_https = GITHUB_https.format(self.user,
+                                                        self.project_name)
+                self.github_git = GITHUB_git.format(self.user,
+                                                    self.project_name)
+
+    def project_from_data(self, identifier):
+        """
+        Gets project data from data file
+        """
+        projects_data = self.read_project_data()
+        if identifier in projects_data:
+            print ("Reading {} project data".format(self.identifier))
+            return projects_data[identifier]
+        else:
+            error_msg = "No project named {} in {}.".format(identifier,
+                                                            PROJECT_DATA_FN)
+            sys.exit("VC_Project.project_from_data(): {}".format(error_msg))
 
     def move_VC_dotFolder(self):
         """
@@ -60,6 +80,9 @@ class VC_Project(object):
         if os.path.islink(dotFolder_path):
             sys.exit("VC_Project.move_VC_dotfolder(): " +
                      "The dot-folder is a sym-link already.")
+        # Check if the vcm_path folder exists
+        if not os.path.exists(self.vc_path):
+            os.mkdir(self.vc_path)
         # Check if there is no other folder with the same name in the vcm_path
         new_dotFolder_path = os.path.join(self.vcm_path, self.project_name)
         if os.path.exists(new_dotFolder_path):
@@ -70,13 +93,38 @@ class VC_Project(object):
         # Create symlink
         if self.dotFolder in os.listdir(self.path):
             error_msg = "Moving unsuccessful, {} still exists.".format(
-                            dotFolder_path)
+                dotFolder_path)
             sys.exit("VC_Project.move_VC_dotfolder(): {}".format(error_msg))
         os.symlink(new_dotFolder_path, dotFolder_path)
 
-    def add_project_to_datfile(self):
+    def read_project_data(self):
         """
-        Writes the the project details to a data file in the vcm_path
+        Reads the already existing yaml data file which contains all
+         version-controlled projects and saves them to a dictionary.
         """
-        self.datfile = os.path.join(self.vcm_path, 'projects.yaml')
+        # We first need to check if the projects.yaml exists
+        if not os.path.exists(PROJECT_DATA_FN):
+            return {}
+        # Slurping in the yaml
+        with open(PROJECT_DATA_FN) as projects:
+            project_data = yaml.load(projects)
+        return project_data
 
+    def write_project_data(self):
+        """
+        Writes the the project details to a data file in the vcm_path.
+        """
+        project_data = self.read_project_data()
+        if self.identifier in project_data:
+            print ("The {} project is already in the "
+                   "local database.".format(self.project_name))
+        else:
+            data_set = {"project_name": self.project_name,
+                        "path": self.path,
+                        "vc_system": self.vc_system,
+                        "user": self.user,
+                        "use_github": self.use_github
+                        "server_address": self.server_address}
+            project_data[self.identifier] = data_set
+            with open(PROJECT_DATA_FN) as projects_yaml:
+                projects_yaml.dump(project_data)
