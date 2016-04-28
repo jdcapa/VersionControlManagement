@@ -1,4 +1,4 @@
-# VersionControlManagement – c4
+# VersionControlManagement – vcm
 This is a Python script managing local version-controlled repositories.
 It currently works for GIT and SVN.
 The main goal was to have the dot-folders centralised at a common place
@@ -9,15 +9,16 @@ The script can move a local dot_folder and create a symlink in its stead as
  ```($HOME/.VersionControl/projects.yaml)```.
 
 Install
--------
-Requirements: ```pyyaml```
+=======
+
+Requirements: pyyaml
 
 Just copy the vcm script to a folder contained in your ```$PATH``` environment
  variable.
 
 
 Usage
------
+=====
 
 ```Text
 vcm [-h] [-m] [-g] [-p PROJECT_NAME] [-vc VC_SYSTEM] [-pa PATH]
