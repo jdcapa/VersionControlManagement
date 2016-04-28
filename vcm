@@ -119,13 +119,12 @@ class VC_Project(object):
         self.identifier = self.project_name + '-' + self.vc_system
         self.github_https = ''
         self.github_git = ''
-        if self.vc_system == 'git':
-            self.use_github = check_kwargs_for('use_github', False)
-            if self.use_github:
-                self.github_https = GITHUB_https.format(self.user_name,
-                                                        self.project_name)
-                self.github_git = GITHUB_git.format(self.user_name,
+        self.use_github = check_kwargs_for('use_github', False)
+        if (self.vc_system == 'git' and self.use_github):
+            self.github_https = GITHUB_https.format(self.user_name,
                                                     self.project_name)
+            self.github_git = GITHUB_git.format(self.user_name,
+                                                self.project_name)
 
     def project_from_data(self, identifier):
         """
