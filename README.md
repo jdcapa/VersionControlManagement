@@ -25,8 +25,8 @@ For example, if we want to add a git project shared on Github to the database fi
  ```bash
  $ vcm -g -m
  ```
-This will try to locate a .git (or .svn) folder in the current directory and
- move it.
+This will try to locate a .git (or .svn) folder in the **current directory**
+ and move it.
 
 
 Usage
