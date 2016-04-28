@@ -2,11 +2,11 @@
 This is a Python script managing local version-controlled repositories.
 It currently works for GIT and SVN.
 The main goal was to have the dot-folders centralised at a common place
- (default: ```HOME/.VersionControl/```) and have a small YAML database of
+ (default: `HOME/.VersionControl/`) and have a small YAML database of
  existing projects.
 The script can move a local dot_folder and create a symlink in its stead as
  well as write and obtain details from a database file
- ```($HOME/.VersionControl/projects.yaml)```.
+ `($HOME/.VersionControl/projects.yaml).`
 
 Install
 =======
