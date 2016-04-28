@@ -16,6 +16,18 @@ Requirements: pyyaml
 Just copy the vcm script to a folder contained in your ```$PATH``` environment
  variable.
 
+Example
+=======
+
+For example, if we want to add a git project shared on Github to the database file
+ and move the .git folder (creating a .git symlink to the actual folder):
+
+ ```bash
+ $ vcm -g -m
+ ```
+This will try to locate a .git (or .svn) folder in the current directory and
+ move it.
+
 
 Usage
 =====
