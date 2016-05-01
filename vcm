@@ -79,9 +79,7 @@ args = parser.parse_args()
 
 
 class VC_Project(object):
-    """
-    VC_Project contains details and methods for a version-controlled project.
-    """
+    """Contains details and methods for a version-controlled project."""
 
     def __init__(self, **kwargs):
         super(VC_Project, self).__init__()
@@ -91,9 +89,7 @@ class VC_Project(object):
             self.set_defaults(kwargs)
 
     def set_defaults(self, kwargs):
-        """
-        Sets default parameters for the version-controlled project.
-        """
+        """Set default parameters for the version-controlled project."""
         def check_kwargs_for(keyword, default):
             if keyword in kwargs:
                 if kwargs[keyword]:
@@ -127,9 +123,7 @@ class VC_Project(object):
                                                 self.project_name)
 
     def project_from_data(self, identifier):
-        """
-        Gets project data from data file
-        """
+        """Get project data from data file."""
         projects_data = self.read_project_data()
         if identifier in projects_data:
             print ("Reading {} project data".format(self.identifier))
@@ -140,10 +134,7 @@ class VC_Project(object):
             sys.exit("VC_Project.project_from_data(): {}".format(error_msg))
 
     def move_VC_dotFolder(self):
-        """
-        Moves a local dot-folder (.git, .svn) to the VCM_PATH and links the
-         folder.
-        """
+        """Move and link local dot-folder (.git, .svn) to the VCM_PATH."""
         dotFolder_path = os.path.join(self.path, self.dotFolder)
         # Check if the dot-folder is already a symbolic link
         if os.path.islink(dotFolder_path):
@@ -168,8 +159,10 @@ class VC_Project(object):
 
     def read_project_data(self):
         """
-        Reads the already existing yaml data file which contains all
-         version-controlled projects and saves them to a dictionary.
+        Read the already existing yaml data file.
+
+        This contains all version-controlled projects and saves them to a
+         dictionary.
         """
         # We first need to check if the projects.yaml exists
         if not os.path.exists(PROJECT_DATA_FN):
@@ -180,9 +173,7 @@ class VC_Project(object):
         return project_data
 
     def write_project_data(self, update=False):
-        """
-        Writes the the project details to a data file in the vcm_path.
-        """
+        """Write the the project details to a data file in the vcm_path."""
         project_data = self.read_project_data()
         if (self.identifier in project_data and not update):
             print ("The {} project is already in the "
