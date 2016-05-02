@@ -82,6 +82,7 @@ class VC_Project(object):
     """Contains details and methods for a version-controlled project."""
 
     def __init__(self, **kwargs):
+        """Initiate the project only with kewords."""
         super(VC_Project, self).__init__()
         if (len(kwargs) == 1 and 'identifier' in kwargs):
             self.project_details_from_data(kwargs['identifier'])
@@ -136,24 +137,47 @@ class VC_Project(object):
     def move_VC_dotFolder(self):
         """Move and link local dot-folder (.git, .svn) to the VCM_PATH."""
         dotFolder_path = os.path.join(self.path, self.dotFolder)
+
         # Check if the dot-folder is already a symbolic link
         if os.path.islink(dotFolder_path):
             sys.exit("VC_Project.move_VC_dotfolder(): " +
                      "The dot-folder is a sym-link already.")
+        else:
+            counter = len(os.listdir(dotFolder_path))
+            for entry in os.listdir(dotFolder_path):
+                if os.path.islink(os.path.join(dotFolder_path, entry)):
+                    counter -= 1
+            if counter <= 0:
+                sys.exit("VC_Project.move_VC_dotfolder(): " +
+                         "The dot-folder is sym-linked already.")
 
         # Check if there is no other folder with the same name in the vcm_path
         new_dotFolder_path = os.path.join(VCM_PATH, self.identifier)
         if os.path.exists(new_dotFolder_path):
             error_msg = "The path {} already exists."
             sys.exit("VC_Project.move_VC_dotfolder(): {}".format(error_msg))
+
         # Move the dot-folder
         shutil.move(dotFolder_path, new_dotFolder_path)
-        # Create symlink
         if self.dotFolder in os.listdir(self.path):
             error_msg = "Moving unsuccessful, {} still exists.".format(
                 dotFolder_path)
             sys.exit("VC_Project.movXe_VC_dotfolder(): {}".format(error_msg))
-        os.symlink(new_dotFolder_path, dotFolder_path)
+
+        # Create symlink (different for git and svn)
+        if self.vc_system == "git":
+            os.symlink(new_dotFolder_path, dotFolder_path)
+            print("Created symlink between \n\t{} and \n\t{}".format(
+                    new_dotFolder_path, dotFolder_path))
+        elif self.vc_system == "svn":
+            os.mkdir(dotFolder_path)
+            for entry in os.listdir(new_dotFolder_path):
+                os.symlink(os.path.join(new_dotFolder_path, entry),
+                           os.path.join(dotFolder_path, entry))
+            print("Created symlinks between \n\t{}/* and \n\t{}/*".format(
+                    new_dotFolder_path, dotFolder_path))
+
+        # Updating variables
         self.dotFolder_path = new_dotFolder_path
         self.write_project_data(update=True)
 
@@ -191,6 +215,8 @@ class VC_Project(object):
             # remove empty key-value pairs
             data_set = {k: v for k, v in data_set.items() if v}
             project_data[self.identifier] = data_set
+            print("Adding the {} project to the {} file.".format(
+                    self.identifier, PROJECT_DATA_FN))
             # Check if the vcm_path folder exists
             if not os.path.exists(VCM_PATH):
                 os.mkdir(VCM_PATH)
@@ -215,6 +241,6 @@ if __name__ == '__main__':
                              use_github=args.use_github,
                              server_address=args.server_address)
     # Actions
-    project.write_project_data()
+    project.write_project_data(update=False)
     if args.move:
         project.move_VC_dotFolder()
