@@ -33,6 +33,13 @@ parser.add_argument('-m', "--move",
                     help=('Moves the dotFolder (.svn or .git to {} and ' +
                           'creates a symlink in its stead.').format(VCM_PATH))
 
+parser.add_argument('-d', "--delete",
+                    action="store_true",
+                    default=False,
+                    dest="delete",
+                    help=('Removes the project data from the internal '
+                          'database [Default: False].'))
+
 parser.add_argument('-g', "--git-hub",
                     action="store_true",
                     default=False,
@@ -162,20 +169,20 @@ class VC_Project(object):
         if self.dotFolder in os.listdir(self.path):
             error_msg = "Moving unsuccessful, {} still exists.".format(
                 dotFolder_path)
-            sys.exit("VC_Project.movXe_VC_dotfolder(): {}".format(error_msg))
+            sys.exit("VC_Project.move_VC_dotfolder(): {}".format(error_msg))
 
         # Create symlink (different for git and svn)
         if self.vc_system == "git":
             os.symlink(new_dotFolder_path, dotFolder_path)
             print("Created symlink between \n\t{} and \n\t{}".format(
-                    new_dotFolder_path, dotFolder_path))
+                new_dotFolder_path, dotFolder_path))
         elif self.vc_system == "svn":
             os.mkdir(dotFolder_path)
             for entry in os.listdir(new_dotFolder_path):
                 os.symlink(os.path.join(new_dotFolder_path, entry),
                            os.path.join(dotFolder_path, entry))
             print("Created symlinks between \n\t{}/* and \n\t{}/*".format(
-                    new_dotFolder_path, dotFolder_path))
+                new_dotFolder_path, dotFolder_path))
 
         # Updating variables
         self.dotFolder_path = new_dotFolder_path
@@ -216,11 +223,24 @@ class VC_Project(object):
             data_set = {k: v for k, v in data_set.items() if v}
             project_data[self.identifier] = data_set
             print("Adding the {} project to the {} file.".format(
-                    self.identifier, PROJECT_DATA_FN))
+                self.identifier, PROJECT_DATA_FN))
             # Check if the vcm_path folder exists
             if not os.path.exists(VCM_PATH):
                 os.mkdir(VCM_PATH)
             with open(PROJECT_DATA_FN, 'w') as projects_yaml:
+                projects_yaml.write(yaml.dump(project_data,
+                                              default_flow_style=False))
+
+    def remove_project_data(self):
+        """Removes the entry for this project from the database."""
+        project_data = self.read_project_data()
+        if self.identifier in project_data:
+            del project_data[self.identifier]
+        else:
+            error_msg = "Cannot remove project {} ".format(self.identifier)
+            error_msg += "(Project not found)."
+            sys.exit("VC_Project.remove_project_data(): {}".format(error_msg))
+        with open(PROJECT_DATA_FN, 'w') as projects_yaml:
                 projects_yaml.write(yaml.dump(project_data,
                                               default_flow_style=False))
 
@@ -233,6 +253,10 @@ if __name__ == '__main__':
 
     if args.identifier:
         project = VC_Project(identifier=args.identifier)
+        if args.delete:
+            project.remove_project_data()
+            sys.exit('Project {} removed from database.'.VC_Project.identifier)
+
     elif ('.git' in os.listdir(path) or '.svn' in os.listdir(path)):
         project = VC_Project(path=path,
                              vc_system=args.vc_system,
@@ -240,6 +264,9 @@ if __name__ == '__main__':
                              user_name=args.user_name,
                              use_github=args.use_github,
                              server_address=args.server_address)
+        if args.delete:
+            project.remove_project_data()
+            sys.exit('Project {} removed from DB.'.format(project.identifier))
     # Actions
     project.write_project_data(update=False)
     if args.move:
