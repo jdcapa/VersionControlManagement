@@ -236,6 +236,10 @@ class VC_Project(object):
         project_data = self.read_project_data()
         if self.identifier in project_data:
             del project_data[self.identifier]
+            new_dotFolder_path = os.path.join(self.path, self.dotFolder)
+            os.unlink(new_dotFolder_path)  # Delete Link
+            shutil.move(self.dotFolder_path, new_dotFolder_path)  # Move
+            self.dotFolder_path = new_dotFolder_path  # Update .Folder location
         else:
             error_msg = "Cannot remove project {} ".format(self.identifier)
             error_msg += "(Project not found)."
