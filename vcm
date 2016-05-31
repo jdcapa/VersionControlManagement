@@ -234,13 +234,10 @@ class VC_Project(object):
     def remove_project_data(self):
         """Removes the entry for this project from the database."""
         project_data = self.read_project_data()
-        print ("read project data")
         if self.identifier in project_data:
-            print ("found project")
             new_dotFolder_path = os.path.join(self.path, self.dotFolder)
             old_dotFolder_path = os.path.join(VCM_PATH, self.identifier)
             os.unlink(new_dotFolder_path)  # Delete Link
-            print old_dotFolder_path, new_dotFolder_path
             shutil.move(old_dotFolder_path, new_dotFolder_path)  # Move
             del project_data[self.identifier]
             self.dotFolder_path = new_dotFolder_path  # Update .Folder location
