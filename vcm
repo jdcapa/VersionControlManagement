@@ -1,14 +1,11 @@
 #!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+"""This is a management program for svn or git version-controlled projects."""
 import os
 import shutil
 import sys
 import yaml
 import argparse
-
-
-program_description = """
-This is a management program for svn or git version-controlled projects.
-"""
 
 GITHUB_USER = 'jdcapa'
 HOME = os.path.expanduser("~")
@@ -19,7 +16,7 @@ GITHUB_git = 'git@github.com:{}/{}.git'
 
 
 # parser set-up
-parser = argparse.ArgumentParser(description=program_description)
+parser = argparse.ArgumentParser(description=__doc__)
 
 # parser.add_argument('action',
 #                     metavar='vcm action',
