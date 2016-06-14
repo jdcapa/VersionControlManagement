@@ -1,4 +1,4 @@
-# VersionControlManagement – vcm
+# Version control management – `vcm`
 This is a Python script managing local version-controlled repositories.
 It currently works for GIT and SVN.
 The main goal was to have the dot-folders centralised at a common place
@@ -33,15 +33,15 @@ Usage
 =====
 
 ```Text
-vcm [-h] [-m] [-g] [-p PROJECT_NAME] [-vc VC_SYSTEM] [-pa PATH]
-           [-sa SERVER_ADDRESS] [-u USER_NAME] [-i IDENTIFIER]
-
 This is a management program for svn or git version-controlled projects.
 
 optional arguments:
   -h, --help            show this help message and exit
   -m, --move            Moves the dotFolder (.svn or .git to
-                        /home/kettner/.VersionControl and creates a symlink in its stead.
+                        /home/kettner/.VersionControl and creates a symlink in
+                        its stead.
+  -d, --delete          Removes the project data from the internal database
+                        [Default: False].
   -g, --git-hub         Is this on github?
   -p PROJECT_NAME, --project PROJECT_NAME
                         Custom project name [default: root folder name]
