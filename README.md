@@ -8,16 +8,15 @@ The script can move a local dot_folder and create a symlink in its stead as
  well as write and obtain details from a database file
  `($HOME/.VersionControl/projects.yaml).`
 
-Install
-=======
+## Install
 
-Requirements: pyyaml
+Requirements: Python3.5 or newer, pyyaml
 
 Just copy the vcm script to a folder contained in your ```$PATH``` environment
  variable.
 
-Example
-=======
+
+## Example
 
 For example, if we want to add a git project shared on Github to the database file
  and move the .git folder (creating a .git symlink to the actual folder):
@@ -29,8 +28,7 @@ This will try to locate a .git (or .svn) folder in the **current directory**
  and move it.
 
 
-Usage
-=====
+## Usage
 
 ```Text
 usage: vcm [-h] [-m] [-d] [-c] [-g] [-p PROJECT_NAME] [-vc VC_SYSTEM]
