@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Small script that batch-checks all git-hub repos in projects.yaml."""
+import os
+import sys
+import subprocess
+import yaml
+
+HOME = os.path.expanduser("~")
+VCM_PATH = os.path.join(HOME, ".VersionControl")
+PROJECT_DATA_FN = os.path.join(VCM_PATH, 'projects.yaml')
+
+
+def query_process(command):
+    """Retrieve an output of a Unix command."""
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    (out, err) = proc.communicate()
+    if err:
+        sys.exit(err)
+    return out
+
+
+def read_project_data():
+    """
+    Reads the already existing yaml data file which contains all
+     version-controlled projects and saves them to a dictionary.
+    """
+    # We first need to check if the projects.yaml exists
+    if not os.path.exists(PROJECT_DATA_FN):
+        return {}
+    # Slurping in the yaml
+    with open(PROJECT_DATA_FN) as projects:
+        project_data = yaml.load(projects)
+    return project_data
+
+
+if __name__ == '__main__':
+    project_data = read_project_data()
+    for identifier in project_data.keys():
+        if "use_github" in project_data[identifier]:
+            msg = project_data[identifier]["path"] + "\n\t"
+            qry = query_process("vcm -c -i {}".format(identifier))
+            print(msg + qry.decode("utf-8"))
