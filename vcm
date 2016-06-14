@@ -1,9 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 """This is a management program for svn or git version-controlled projects."""
 import os
 import shutil
 import sys
+import subprocess
 import yaml
 import argparse
 
@@ -36,6 +37,13 @@ parser.add_argument('-d', "--delete",
                     dest="delete",
                     help=('Removes the project data from the internal '
                           'database [Default: False].'))
+
+parser.add_argument('-c', "--check",
+                    action="store_true",
+                    default=False,
+                    dest="check",
+                    help=('Checks the status of the repoitory and compares it '
+                          'to the remote origin.'))
 
 parser.add_argument('-g', "--git-hub",
                     action="store_true",
@@ -82,6 +90,15 @@ parser.add_argument('-i', "--identifier",
 args = parser.parse_args()
 
 
+def query_process(command):
+    """Retrieve an output of a Unix command."""
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    (out, err) = proc.communicate()
+    if err:
+        sys.exit(err)
+    return out
+
+
 class VC_Project(object):
     """Contains details and methods for a version-controlled project."""
 
@@ -89,7 +106,12 @@ class VC_Project(object):
         """Initiate the project only with kewords."""
         super(VC_Project, self).__init__()
         if (len(kwargs) == 1 and 'identifier' in kwargs):
-            self.project_details_from_data(kwargs['identifier'])
+            kwargs_new = self.project_from_data(kwargs['identifier'])
+            # This is python 3.5 style
+            if (sys.version_info.major == 3 and sys.version_info.minor >= 5):
+                self.set_defaults({**kwargs, **kwargs_new})
+            else:
+                sys.exit("Needs Python3.5 or newer.")
         else:
             self.set_defaults(kwargs)
 
@@ -131,7 +153,7 @@ class VC_Project(object):
         """Get project data from data file."""
         projects_data = self.read_project_data()
         if identifier in projects_data:
-            print ("Reading {} project data".format(self.identifier))
+            # print("Reading {} project data".format(identifier))
             return projects_data[identifier]
         else:
             error_msg = "No project named {} in {}.".format(identifier,
@@ -204,8 +226,8 @@ class VC_Project(object):
         """Write the the project details to a data file in the vcm_path."""
         project_data = self.read_project_data()
         if (self.identifier in project_data and not update):
-            print ("The {} project is already in the "
-                   "local database.".format(self.project_name))
+            print("The {} project is already in the "
+                  "local database.".format(self.project_name))
         else:
             data_set = {"project_name": self.project_name,
                         "path": self.path,
@@ -228,6 +250,35 @@ class VC_Project(object):
                 projects_yaml.write(yaml.dump(project_data,
                                               default_flow_style=False))
 
+    def git_status(self):
+        """
+        Return the status of this git repository relative to the origin.
+
+        Return values are: "Up-to-date", "Need to pull", "
+                           Need to push", "Diverged" and "Not a github repo"
+        """
+        if (not self.vc_system == "git" and not self.use_github):
+            return "Not a github repo"
+
+        cwd = os.getcwd()
+        os.chdir(self.path)
+
+        query_process("git remote update")
+        local = query_process("git rev-parse @")
+        remote = query_process("git rev-parse @{u}")
+        base = query_process("git merge-base @ @{u}")
+
+        if local == remote:
+            status = "Up-to-date"
+        elif local == base:
+            status = "Need to pull"
+        elif remote == base:
+            status = "Need to push"
+        else:
+            status = "Diverged"
+        os.chdir(cwd)
+        return status
+
     def remove_project_data(self):
         """Removes the entry for this project from the database."""
         project_data = self.read_project_data()
@@ -248,17 +299,16 @@ class VC_Project(object):
 
 
 if __name__ == '__main__':
+
+    # Determine the path
     if not args.path:
         path = os.getcwd()
     else:
         path = args.path
 
+    # Initialise Project
     if args.identifier:
         project = VC_Project(identifier=args.identifier)
-        if args.delete:
-            project.remove_project_data()
-            sys.exit('Project {} removed from database.'.VC_Project.identifier)
-
     elif ('.git' in os.listdir(path) or '.svn' in os.listdir(path)):
         project = VC_Project(path=path,
                              vc_system=args.vc_system,
@@ -266,10 +316,23 @@ if __name__ == '__main__':
                              user_name=args.user_name,
                              use_github=args.use_github,
                              server_address=args.server_address)
-        if args.delete:
-            project.remove_project_data()
-            sys.exit('Project {} removed from DB.'.format(project.identifier))
-    # Actions
+        if args.check:
+            project = VC_Project(identifier=project.identifier)
+    else:
+        sys.exit("Unable to find a git/svn project.")
+
+    # Are we deleting?
+    if args.delete:
+        project.remove_project_data()
+        sys.exit('Project {} removed from DB.'.format(project.identifier))
+
+    # Are we checking the repo?
+    if args.check:
+        msg = "Project {} status: {}".format(project.identifier,
+                                             project.git_status())
+        sys.exit(msg)
+
+    # Default: Add project to the database
     project.write_project_data(update=False)
     if args.move:
         project.move_VC_dotFolder()

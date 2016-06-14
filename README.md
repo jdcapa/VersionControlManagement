@@ -33,6 +33,9 @@ Usage
 =====
 
 ```Text
+usage: vcm [-h] [-m] [-d] [-c] [-g] [-p PROJECT_NAME] [-vc VC_SYSTEM]
+           [-pa PATH] [-sa SERVER_ADDRESS] [-u USER_NAME] [-i IDENTIFIER]
+
 This is a management program for svn or git version-controlled projects.
 
 optional arguments:
@@ -42,6 +45,8 @@ optional arguments:
                         its stead.
   -d, --delete          Removes the project data from the internal database
                         [Default: False].
+  -c, --check           Checks the status of the repoitory and compares it to
+                        the remote origin.
   -g, --git-hub         Is this on github?
   -p PROJECT_NAME, --project PROJECT_NAME
                         Custom project name [default: root folder name]
