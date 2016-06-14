@@ -330,7 +330,8 @@ if __name__ == '__main__':
     if args.check:
         msg = "Project {} status: {}".format(project.identifier,
                                              project.git_status())
-        sys.exit(msg)
+        print(msg)
+        sys.exit()
 
     # Default: Add project to the database
     project.write_project_data(update=False)
