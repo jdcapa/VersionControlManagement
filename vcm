@@ -8,13 +8,15 @@ import subprocess
 import yaml
 import argparse
 
-GITHUB_USER = 'jdcapa'
-HOME = os.path.expanduser("~")
-VCM_PATH = os.path.join(HOME, ".VersionControl")
-PROJECT_DATA_FN = os.path.join(VCM_PATH, 'projects.yaml')
-GITHUB_https = "https://github.com/{}/{}"
-GITHUB_git = 'git@github.com:{}/{}.git'
 
+HOME = os.path.expanduser("~")
+CONFIG_PATH = os.path.join(HOME, ".config", "vcm")
+VCM_PROJECTS = os.path.join(CONFIG_PATH, "projects.yaml")
+VCM_CONFIG = os.path.join(CONFIG_PATH, "config.yaml")
+DEFAULTS = {'vcs_dot_path': '{}/.vcs_dots'.format(HOME),
+            'vcs_path': '{}/.version_controlled_software'.format(HOME),
+            'move': False,
+            'move_dot': False}
 
 # parser set-up
 parser = argparse.ArgumentParser(description=__doc__)
@@ -28,8 +30,17 @@ parser.add_argument('-m', "--move",
                     action="store_true",
                     default='',
                     dest="move",
-                    help=('Moves the dotFolder (.svn or .git to {} and ' +
-                          'creates a symlink in its stead.').format(VCM_PATH))
+                    help=('Moves the Folder to a predefined VCS_PATH '
+                          + '(defined in {}'.format(VCM_CONFIG)
+                          + ') and creates a symlink '
+                          + 'in its stead.'))
+
+parser.add_argument('-md', "--move-dot",
+                    action="store_true",
+                    default='',
+                    dest="move_dot",
+                    help='Moves the dotFolder (.svn or .git to {} and creates '
+                         'a symlink in its stead.')
 
 parser.add_argument('-d', "--delete",
                     action="store_true",
@@ -42,14 +53,15 @@ parser.add_argument('-c', "--check",
                     action="store_true",
                     default=False,
                     dest="check",
-                    help=('Checks the status of the repoitory and compares it '
+                    help=('Checks the status of the repository and compares it '
                           'to the remote origin.'))
 
-parser.add_argument('-g', "--git-hub",
-                    action="store_true",
-                    default=False,
-                    dest="use_github",
-                    help='Is this on github?')
+parser.add_argument('-g', "--git-repo",
+                    action='store',
+                    type=str, default="",
+                    dest="gitrepo",
+                    help='Is it online? (provide address, e.g. '
+                         'server.gitlab.org or github.com)')
 
 parser.add_argument('-p', "--project",
                     action='store',
@@ -87,6 +99,13 @@ parser.add_argument('-i', "--identifier",
                     dest="identifier",
                     help='Internal database identifier, e.g. projectname-git')
 
+parser.add_argument('-a', "--alt-paths", nargs='+',
+                    action='store',
+                    type=str, default="",
+                    dest="alt_paths",
+                    help='Add alternative path roots where symlinks should '
+                         'appear.')
+
 args = parser.parse_args()
 
 
@@ -97,6 +116,27 @@ def query_process(command):
     if err:
         sys.exit(err)
     return out
+
+
+def read_config(config_file=None):
+    """Read the already existing VCM_CONFIG yaml file."""
+
+    if not config_file:
+        config_file = VCM_CONFIG
+    if not os.path.exists(VCM_CONFIG):
+        write_config(VCM_CONFIG, DEFAULTS)
+    # Slurping in the yaml
+    with open(config_file) as config_yaml:
+        config_data = yaml.load(config_yaml)
+    return config_data
+
+def write_config(config_file, config_data):
+    """Write a VCM_CONFIG yaml file."""
+    if not os.path.exists(os.path.dirname(config_file)):
+        os.makedirs(os.path.dirname(config_file))
+    with open(config_file, 'w') as config_yaml:
+        config_yaml.write(yaml.dump(config_data,
+                          default_flow_style=False))
 
 
 class VC_Project(object):
@@ -117,13 +157,13 @@ class VC_Project(object):
 
     def set_defaults(self, kwargs):
         """Set default parameters for the version-controlled project."""
+
         def check_kwargs_for(keyword, default):
             if keyword in kwargs:
                 if kwargs[keyword]:
                     return kwargs[keyword]
             return default
 
-        self.path = check_kwargs_for('path', '')
         self.vc_system = check_kwargs_for('vc_system', 'git')
         if self.vc_system == 'git':
             self.dotFolder = '.git'
@@ -132,22 +172,43 @@ class VC_Project(object):
         else:
             sys.exit("VC_Project.__init__(): " +
                      "Unknown Version control system.")
-        self.dotFolder_path = check_kwargs_for('dotFolder_path',
-                                               os.path.join(self.path,
-                                                            self.dotFolder))
+        
+        path = check_kwargs_for('path', '')
+        dotFolder_path = check_kwargs_for('dotFolder_path', "")
+        self.set_folders(path, dotFolder_path)
         self.user_name = check_kwargs_for('user_name', '')
         self.server_address = check_kwargs_for('server_address', '')
         self.project_name = check_kwargs_for('project_name',
                                              os.path.basename(self.path))
         self.identifier = self.project_name + '-' + self.vc_system
-        self.github_https = ''
-        self.github_git = ''
-        self.use_github = check_kwargs_for('use_github', False)
-        if (self.vc_system == 'git' and self.use_github):
-            self.github_https = GITHUB_https.format(self.user_name,
-                                                    self.project_name)
-            self.github_git = GITHUB_git.format(self.user_name,
-                                                self.project_name)
+        if self.user_name:
+            self.identifier = self.user_name + '-' + self.identifier
+
+        self.gitrepo_https = ''
+        self.gitrepo_git = ''
+        gitrepo = check_kwargs_for('gitrepo', "")
+        if gitrepo:
+            self.use_gitrepo = True
+        else:
+            self.use_gitrepo = False
+        if (self.vc_system == 'git' and self.use_gitrepo):
+            gitrepo_https = "https://{}/{}/{}"
+            gitrepo_git = 'git@{}:{}/{}.git'
+            self.gitrepo_https = gitrepo_https.format(gitrepo,
+                                                      self.user_name,
+                                                      self.project_name)
+            self.gitrepo_git = gitrepo_git.format(gitrepo,
+                                                  self.user_name,
+                                                  self.project_name)
+        self.alt_paths = check_kwargs_for('alt_paths', [])
+
+    def set_folders(self, path, dotFolder_path=""):
+        """Set self.path and dotFolder_path."""
+        self.path = path
+        if not dotFolder_path:
+            self.dotFolder_path = os.path.join(path, self.dotFolder)
+        else:
+            self.dotFolder_path = dotFolder_path
 
     def project_from_data(self, identifier):
         """Get project data from data file."""
@@ -157,11 +218,11 @@ class VC_Project(object):
             return projects_data[identifier]
         else:
             error_msg = "No project named {} in {}.".format(identifier,
-                                                            PROJECT_DATA_FN)
+                                                            VCM_PROJECTS)
             sys.exit("VC_Project.project_from_data(): {}".format(error_msg))
 
-    def move_VC_dotFolder(self):
-        """Move and link local dot-folder (.git, .svn) to the VCM_PATH."""
+    def move_dotFolder(self, vcs_dot_path):
+        """Move and link local dot-folder (.git, .svn) to the vcs_dot_path."""
         dotFolder_path = os.path.join(self.path, self.dotFolder)
 
         # Check if the dot-folder is already a symbolic link
@@ -178,7 +239,7 @@ class VC_Project(object):
                          "The dot-folder is sym-linked already.")
 
         # Check if there is no other folder with the same name in the vcm_path
-        new_dotFolder_path = os.path.join(VCM_PATH, self.identifier)
+        new_dotFolder_path = os.path.join(vcs_dot_path, self.identifier)
         if os.path.exists(new_dotFolder_path):
             error_msg = "The path {} already exists."
             sys.exit("VC_Project.move_VC_dotfolder(): {}".format(error_msg))
@@ -194,7 +255,7 @@ class VC_Project(object):
         if self.vc_system == "git":
             os.symlink(new_dotFolder_path, dotFolder_path)
             print("Created symlink between \n\t{} and \n\t{}".format(
-                new_dotFolder_path, dotFolder_path))
+                  new_dotFolder_path, dotFolder_path))
         elif self.vc_system == "svn":
             os.mkdir(dotFolder_path)
             for entry in os.listdir(new_dotFolder_path):
@@ -207,6 +268,28 @@ class VC_Project(object):
         self.dotFolder_path = new_dotFolder_path
         self.write_project_data(update=True)
 
+    def move_Folder(self, new_path):
+        """Move itself to new_path/user-Projectname."""
+        if self.user_name:
+            folder_name = "{}-{}".format(self.user_name, self.project_name)
+        else:
+            folder_name = self.project_name
+        
+        newfullpath = os.path.join(new_path, folder_name)
+        if os.path.exists(newfullpath):
+            sys.exit("{} already exists in {}.".format(folder_name, 
+                                                       new_path))
+        else:
+            os.makedirs(newfullpath)
+        # move
+        for element in os.listdir(self.path):
+            shutil.move(os.path.join(self.path, element), newfullpath)
+        os.rmdir(self.path)
+        if not self.path in self.alt_paths:
+            self.alt_paths.append(self.path)
+        self.set_folders(newfullpath)
+        self.write_project_data(update=True)
+
     def read_project_data(self):
         """
         Read the already existing yaml data file.
@@ -215,10 +298,10 @@ class VC_Project(object):
          dictionary.
         """
         # We first need to check if the projects.yaml exists
-        if not os.path.exists(PROJECT_DATA_FN):
+        if not os.path.exists(VCM_PROJECTS):
             return {}
         # Slurping in the yaml
-        with open(PROJECT_DATA_FN) as projects:
+        with open(VCM_PROJECTS) as projects:
             project_data = yaml.load(projects)
         return project_data
 
@@ -234,19 +317,20 @@ class VC_Project(object):
                         "vc_system": self.vc_system,
                         "dotFolder_path": self.dotFolder_path,
                         "user_name": self.user_name,
-                        "github_https": self.github_https,
-                        "github_git": self.github_git,
-                        "use_github": self.use_github,
-                        "server_address": self.server_address}
+                        "gitrepo_https": self.gitrepo_https,
+                        "gitrepo_git": self.gitrepo_git,
+                        "use_gitrepo": self.use_gitrepo,
+                        "server_address": self.server_address,
+                        "alt_paths": self.alt_paths}
             # remove empty key-value pairs
             data_set = {k: v for k, v in data_set.items() if v}
             project_data[self.identifier] = data_set
             print("Adding the {} project to the {} file.".format(
-                self.identifier, PROJECT_DATA_FN))
+                self.identifier, VCM_PROJECTS))
             # Check if the vcm_path folder exists
-            if not os.path.exists(VCM_PATH):
-                os.mkdir(VCM_PATH)
-            with open(PROJECT_DATA_FN, 'w') as projects_yaml:
+            if not os.path.exists(CONFIG_PATH):
+                os.mkdir(CONFIG_PATH)
+            with open(VCM_PROJECTS, 'w') as projects_yaml:
                 projects_yaml.write(yaml.dump(project_data,
                                               default_flow_style=False))
 
@@ -257,8 +341,8 @@ class VC_Project(object):
         Return values are: "Up-to-date", "Need to pull", "
                            Need to push", "Diverged" and "Not a github repo"
         """
-        if (not self.vc_system == "git" and not self.use_github):
-            return "Not a github repo"
+        if (not self.vc_system == "git" and not self.use_gitrepo):
+            return "Not online git repo"
 
         cwd = os.getcwd()
         os.chdir(self.path)
@@ -293,18 +377,36 @@ class VC_Project(object):
             error_msg = "Cannot remove project {} ".format(self.identifier)
             error_msg += "(Project not found)."
             sys.exit("VC_Project.remove_project_data(): {}".format(error_msg))
-        with open(PROJECT_DATA_FN, 'w') as projects_yaml:
+        with open(VCM_PROJECTS, 'w') as projects_yaml:
                 projects_yaml.write(yaml.dump(project_data,
                                               default_flow_style=False))
 
+    def create_alt_links(self):
+        """Create symlinks to the original folder."""
+        for alt_path in self.alt_paths:
+            if os.path.exists(alt_path):
+                if not os.path.islink(alt_path):
+                    print("{} exists, no symlink created.")
+                    continue
+                else:
+                    os.remove(alt_path)
+            print("Linking {} to {}.".format(self.path, alt_path))
+            os.symlink(self.path, alt_path)
+
+    def create_backup(self):
+        pass
+
+
 
 if __name__ == '__main__':
-
+    config = read_config()
+    vcs_path = config["vcs_path"]
+    vcs_dot_path = config["vcs_dot_path"]
     # Determine the path
     if not args.path:
         path = os.getcwd()
     else:
-        path = args.path
+        path = os.path.abspath(args.path)
 
     # Initialise Project
     if args.identifier:
@@ -314,8 +416,9 @@ if __name__ == '__main__':
                              vc_system=args.vc_system,
                              project_name=args.project_name,
                              user_name=args.user_name,
-                             use_github=args.use_github,
-                             server_address=args.server_address)
+                             gitrepo=args.gitrepo,
+                             server_address=args.server_address,
+                             alt_paths=args.alt_paths)
         if args.check:
             project = VC_Project(identifier=project.identifier)
     else:
@@ -335,5 +438,11 @@ if __name__ == '__main__':
 
     # Default: Add project to the database
     project.write_project_data(update=False)
+    if args.move_dot:
+        project.move_dotFolder(vcs_dot_path)
     if args.move:
-        project.move_VC_dotFolder()
+        project.move_Folder(vcs_path)
+        project.create_alt_links()
+
+
+
